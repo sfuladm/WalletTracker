@@ -119,21 +119,21 @@
                     <label class="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Salary</label>
                     <div class="flex items-center gap-1">
                         <span class="text-slate-400 font-bold text-xs">RM</span>
-                        <input id="salaryInput" type="number" oninput="handleSalaryUpdate(this.value)" class="w-16 bg-transparent font-800 outline-none text-slate-800 text-sm">
+                        <input id="salaryInput" type="number" placeholder="0" oninput="handleSalaryUpdate(this.value)" class="w-16 bg-transparent font-800 outline-none text-slate-800 text-sm">
                     </div>
                 </div>
                 <div class="px-3 border-r border-slate-200">
                     <label class="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Tax</label>
                     <div class="flex items-center gap-1">
-                        <input id="taxInput" type="number" oninput="handleTaxUpdate(this.value)" class="w-8 bg-transparent font-800 outline-none text-slate-800 text-sm">
+                        <input id="taxInput" type="number" placeholder="0" oninput="handleTaxUpdate(this.value)" class="w-8 bg-transparent font-800 outline-none text-slate-800 text-sm">
                         <span class="text-slate-400 font-bold text-xs">%</span>
                     </div>
                 </div>
                 <div class="px-3">
-                    <label class="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Savings Goal</label>
+                    <label class="block text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Goal</label>
                     <div class="flex items-center gap-1">
                         <span class="text-slate-400 font-bold text-xs">RM</span>
-                        <input id="goalInput" type="number" oninput="handleGoalUpdate(this.value)" class="w-20 bg-transparent font-800 outline-none text-slate-800 text-sm">
+                        <input id="goalInput" type="number" placeholder="0" oninput="handleGoalUpdate(this.value)" class="w-20 bg-transparent font-800 outline-none text-slate-800 text-sm">
                     </div>
                 </div>
                 <button onclick="openModal()" class="btn-action text-sm">
@@ -274,12 +274,12 @@
 
     <script>
         let state = {
-            salary: 5000,
-            taxRate: 5,
-            savingsGoal: 10000,
+            salary: 0,
+            taxRate: 0,
+            savingsGoal: 0,
             totalSaved: 0,
             filter: 'all',
-            categories: ['Bills', 'Food', 'Leisure', 'Transport'],
+            categories: [], // Starts empty
             entries: [],
             currentEntryType: 'need'
         };
@@ -287,7 +287,7 @@
         const fmt = (num) => num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
         function refreshEverything() {
-            localStorage.setItem('wallet_pro_targets_v1', JSON.stringify(state));
+            localStorage.setItem('wallet_pro_clean_v1', JSON.stringify(state));
 
             let totalPaid = 0;
             let pendingCount = 0;
@@ -312,7 +312,6 @@
             const daysLeft = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() - now.getDate() + 1;
             const daily = left > 0 ? (left / daysLeft) : 0;
             
-            // Dashboard UI
             document.getElementById('trueBalance').innerText = `RM ${fmt(left)}`;
             document.getElementById('totalSavedDisplay').innerText = `RM ${fmt(state.totalSaved)}`;
             document.getElementById('dailyBudget').innerText = `RM ${fmt(daily)}`;
@@ -320,13 +319,11 @@
             document.getElementById('daysRemaining').innerText = daysLeft;
             document.getElementById('yearlySavings').innerText = `RM ${fmt(left * 12 + state.totalSaved)}`;
             
-            // Savings Target UI
             const goalProgress = state.savingsGoal > 0 ? (state.totalSaved / state.savingsGoal) * 100 : 0;
             document.getElementById('savingsBar').style.width = `${Math.min(goalProgress, 100)}%`;
             document.getElementById('savingsPct').innerText = `${Math.round(goalProgress)}%`;
             document.getElementById('savingsRemaining').innerText = `RM ${fmt(Math.max(0, state.savingsGoal - state.totalSaved))} Left`;
 
-            // Needs vs Wants UI
             const totalSplit = needTotal + wantTotal;
             const needPct = totalSplit > 0 ? (needTotal / totalSplit) * 100 : 50;
             const wantPct = totalSplit > 0 ? (wantTotal / totalSplit) * 100 : 50;
@@ -335,13 +332,11 @@
             document.getElementById('needPct').innerText = Math.round(needPct);
             document.getElementById('wantPct').innerText = Math.round(wantPct);
 
-            // Badges
             const counterEl = document.getElementById('pendingCounter');
             const badgeEl = document.getElementById('pendingBadge');
             counterEl.innerText = pendingCount;
             badgeEl.style.display = pendingCount > 0 ? 'flex' : 'none';
 
-            // Bars
             const bars = document.getElementById('progressBars');
             bars.innerHTML = state.categories.map(c => {
                 if(categorySums[c] === 0) return '';
@@ -358,8 +353,10 @@
                 `;
             }).join('');
 
-            // Select & Filters
-            document.getElementById('inCat').innerHTML = state.categories.map(c => `<option value="${c}">${c}</option>`).join('');
+            document.getElementById('inCat').innerHTML = state.categories.length > 0 
+                ? state.categories.map(c => `<option value="${c}">${c}</option>`).join('')
+                : `<option disabled selected>Add a category first</option>`;
+
             document.getElementById('filterBar').innerHTML = `<button onclick="updateFilter('all')" class="whitespace-nowrap px-3 py-1 rounded-lg text-[9px] font-900 uppercase tracking-widest transition-all ${state.filter === 'all' ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-400'}">All</button>` + 
                 state.categories.map(c => `
                     <button onclick="updateFilter('${c}')" class="whitespace-nowrap px-3 py-1 rounded-lg text-[9px] font-900 uppercase tracking-widest transition-all ${state.filter === c ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-100 text-slate-400'}">${c}</button>
@@ -407,7 +404,7 @@
 
         function confirmEntry() {
             const l = document.getElementById('inLabel'), v = document.getElementById('inVal'), c = document.getElementById('inCat'), id = document.getElementById('editId').value;
-            if(!l.value || !v.value) return;
+            if(!l.value || !v.value || !c.value || c.disabled) return;
             const data = { 
                 label: l.value.trim(), 
                 val: parseFloat(v.value), 
@@ -429,7 +426,6 @@
             
             if (left > 0) {
                 state.totalSaved += left;
-                // Add a "virtual" expense to zero out the monthly budget since it's moved to savings
                 state.entries.unshift({
                     id: Date.now(),
                     label: "Committed to Savings",
@@ -438,6 +434,7 @@
                     type: "need",
                     settled: true
                 });
+                if(!state.categories.includes("Savings")) state.categories.push("Savings");
                 refreshEverything();
             }
         }
@@ -478,11 +475,13 @@
         function toggleNewCat() { document.getElementById('newCatBox').classList.toggle('hidden'); }
 
         window.onload = () => {
-            const saved = localStorage.getItem('wallet_pro_targets_v1');
-            if(saved) state = JSON.parse(saved);
-            document.getElementById('salaryInput').value = state.salary;
-            document.getElementById('taxInput').value = state.taxRate;
-            document.getElementById('goalInput').value = state.savingsGoal || 0;
+            const saved = localStorage.getItem('wallet_pro_clean_v1');
+            if(saved) {
+                state = JSON.parse(saved);
+                document.getElementById('salaryInput').value = state.salary || "";
+                document.getElementById('taxInput').value = state.taxRate || "";
+                document.getElementById('goalInput').value = state.savingsGoal || "";
+            }
             refreshEverything();
         };
     </script>
